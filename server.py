@@ -4,7 +4,6 @@ import re
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -17,7 +16,15 @@ VAULT = Path(os.environ.get("KG_VAULT", ROOT / "vault")).resolve()
 VAULT.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(title="Knowledge Graph")
-app.mount("/static", StaticFiles(directory=ROOT / "static"), name="static")
+
+
+@app.middleware("http")
+async def fresh_pages(request, call_next):
+    """Pages always revalidate so a rebuilt UI shows up; hashed assets can be cached."""
+    response = await call_next(request)
+    if response.headers.get("content-type", "").startswith("text/html"):
+        response.headers["Cache-Control"] = "no-cache"
+    return response
 
 
 class NewNote(BaseModel):
@@ -62,11 +69,6 @@ def note_path(note: dict) -> Path:
     if VAULT not in path.parents:
         raise HTTPException(400, "Bad path")
     return path
-
-
-@app.get("/")
-def index():
-    return FileResponse(ROOT / "static" / "index.html", headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/api/graph")
@@ -190,3 +192,7 @@ def rename(nid: str, data: Rename):
         raise HTTPException(409, f"File {new_path.name} already exists")
     insights.rename(VAULT, notes, note["id"], title)
     return {"id": note_id(title)}
+
+
+# The UI: a static export of the Next.js app in web/ (built into static/). Mounted last so /api wins.
+app.mount("/", StaticFiles(directory=ROOT / "static", html=True), name="ui")

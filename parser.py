@@ -40,6 +40,7 @@ def parse_note(path: Path) -> dict:
         "title": title,
         "file": path.name,
         "type": str(post.get("type", "note")).lower(),
+        "mtime": path.stat().st_mtime,
         "tags": tags,
         "links": links,
         "body": body,
@@ -81,11 +82,11 @@ def build_graph(notes: dict[str, dict]) -> dict:
     for n in notes.values():
         nodes.append({"data": {
             "id": n["id"], "label": n["title"], "type": n["type"],
-            "tags": n["tags"], "degree": degree[n["id"]], "ghost": False,
+            "tags": n["tags"], "degree": degree[n["id"]], "ghost": False, "mtime": n["mtime"],
         }})
     for gid, title in ghosts.items():
         nodes.append({"data": {
             "id": gid, "label": title, "type": "missing",
-            "tags": [], "degree": degree[gid], "ghost": True,
+            "tags": [], "degree": degree[gid], "ghost": True, "mtime": 0,
         }})
     return {"nodes": nodes, "edges": edges}

@@ -3,3 +3,6 @@ __pycache__/
 .venv/
 .env
 node_modules/
+.next/
+out/
+next-env.d.ts

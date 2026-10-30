@@ -11,14 +11,22 @@ python -m uvicorn server:app --port 8000
 
 Open http://localhost:8000.
 
-The UI is a React app in `web/`. A built copy is already in `static/`, so you only need Node to change the UI:
+The UI is a Next.js app in `web/`. It's exported as static files, and a built copy is already in `static/`, so you only need Node to change the UI:
 
 ```
 cd web
 npm install
-npm run dev     # live-reloading UI on http://localhost:5173 (keep the Python server running for /api)
-npm run build   # writes the finished UI into ../static
+npm run dev     # live-reloading UI on http://localhost:3000 (keep the Python server running for /api)
+npm run build   # exports the finished UI into ../static
 ```
+
+## Layout
+
+- **Left rail:** search (`/` or Ctrl+K), Jot down, Today, Map and New note, plus lists of recently edited notes, journal days, notes not written yet, and notes with no links.
+- **Desk (home):** a box to jot into today's note, what you've written today, and the cards you touched last.
+- **Note page:** the note on a ruled card in the middle. On the right are its nearby notes as a small live graph, and what links to it, mentions it or resembles it.
+- **Map** (`m`): every note as a physics graph. Click a card to peek at it.
+- **URLs:** each note has its own address (`/?n=note-title`), so the back button and bookmarks work.
 
 AI suggestions use the Anthropic API: set `ANTHROPIC_API_KEY` (or sign in with `ant auth login`). Optional env vars: `KG_MODEL` (default `claude-opus-5-5`), `KG_VAULT` (path to another notes folder, e.g. an Obsidian vault).
 
@@ -55,6 +63,10 @@ AI suggestions use the Anthropic API: set `ANTHROPIC_API_KEY` (or sign in with `
 - `parser.py`: reads the vault, builds nodes and edges
 - `ai.py`: Claude call that suggests links and tags
 - `insights.py`: backlinks, mentions, search, similar notes, rename and daily notes (all local)
-- `web/src/components/Graph.jsx`: the physics graph (d3-force, cards and links drawn as DOM and SVG)
-- `web/src/components/Panel.jsx`: the note card, editor and Claude suggestions
+- `web/app/`: the Next.js pages (`page.jsx` for the desk and notes, `map/page.jsx` for the map) and `globals.css`
+- `web/components/Shell.jsx`: the rail, quick capture and hotkeys; `Palette.jsx`: search and commands
+- `web/components/Workspace.jsx`: the desk and note page; `MapView.jsx`: the map
+- `web/components/Graph.jsx`: the physics graph (d3-force, cards and links drawn as DOM and SVG)
+- `web/components/Panel.jsx`: the note card, context lists, editor and Claude suggestions
+- `web/lib/vault.js`: shared state for all pages (notes, live refresh, settings)
 - `static/`: the built UI that the server serves
