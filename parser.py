@@ -31,7 +31,11 @@ def parse_note(path: Path) -> dict:
             links.append(target)
     tags = sorted({t.lower() for t in TAG_RE.findall(text)} | {str(t).lower() for t in post.get("tags", []) or []})
     title = str(post.get("title") or path.stem)
+    aliases = post.get("aliases") or []
+    if isinstance(aliases, str):
+        aliases = [a.strip() for a in aliases.split(",")]
     return {
+        "aliases": [str(a) for a in aliases if str(a).strip()],
         "id": note_id(title),
         "title": title,
         "file": path.name,

@@ -1,5 +1,6 @@
 """Personal knowledge graph: FastAPI server over a folder of Markdown notes."""
 import os
+import re
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -8,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 import ai
+import insights
 from parser import build_graph, load_vault, note_id, safe_filename
 
 ROOT = Path(__file__).parent
@@ -33,6 +35,20 @@ class Accept(BaseModel):
     tags: list[str] = []
 
 
+class Capture(BaseModel):
+    date: str  # the browser's local date, so "today" matches the user's clock
+    time: str = ""
+    text: str = ""
+
+
+class LinkMention(BaseModel):
+    source: str
+
+
+class Rename(BaseModel):
+    title: str
+
+
 def get_note(nid: str) -> dict:
     notes = load_vault(VAULT)
     note = notes.get(note_id(nid))
@@ -56,6 +72,37 @@ def index():
 @app.get("/api/graph")
 def graph():
     return build_graph(load_vault(VAULT))
+
+
+@app.get("/api/version")
+def version():
+    return {"version": insights.fingerprint(VAULT)}
+
+
+@app.get("/api/search")
+def search(q: str = ""):
+    return insights.search(load_vault(VAULT), q)
+
+
+@app.post("/api/daily")
+def daily(data: Capture):
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", data.date):
+        raise HTTPException(400, "Date must look like 2026-10-30")
+    return {"id": insights.daily(VAULT, data.date, data.time, data.text)}
+
+
+# These must come before the catch-all GET /api/notes/{nid:path} below.
+@app.get("/api/notes/{nid:path}/context")
+def context(nid: str):
+    notes = load_vault(VAULT)
+    nid = note_id(nid)
+    if nid not in notes:
+        raise HTTPException(404, f"No note '{nid}'")
+    return {
+        "backlinks": insights.backlinks(notes, nid),
+        "mentions": insights.mentions(notes, nid),
+        "related": insights.related(notes, nid),
+    }
 
 
 @app.get("/api/notes/{nid:path}")
@@ -111,3 +158,35 @@ def accept(nid: str, data: Accept):
         raw += "\n\n" + " ".join(f"#{t}" for t in tags)
     path.write_text(raw + "\n", encoding="utf-8")
     return {"added_links": links, "added_tags": tags}
+
+
+@app.post("/api/notes/{nid:path}/link-mention")
+def link_mention(nid: str, data: LinkMention):
+    """In note `data.source`, turn the plain mention of this note into a [[link]]."""
+    notes = load_vault(VAULT)
+    target, source = notes.get(note_id(nid)), notes.get(note_id(data.source))
+    if not target or not source:
+        raise HTTPException(404, "Note not found")
+    path = note_path(source)
+    for name in [target["title"]] + target["aliases"]:
+        if insights.link_mention(path, target["title"], name):
+            return {"ok": True}
+    raise HTTPException(409, f"'{source['title']}' no longer mentions '{target['title']}'")
+
+
+@app.post("/api/notes/{nid:path}/rename")
+def rename(nid: str, data: Rename):
+    notes = load_vault(VAULT)
+    note = notes.get(note_id(nid))
+    title = data.title.strip()
+    if not note:
+        raise HTTPException(404, f"No note '{nid}'")
+    if not title:
+        raise HTTPException(400, "Title is required")
+    if note_id(title) in notes and note_id(title) != note["id"]:
+        raise HTTPException(409, f"'{title}' already exists")
+    new_path = (VAULT / note["file"]).with_name(safe_filename(title))
+    if new_path.exists() and new_path.resolve() != note_path(note):
+        raise HTTPException(409, f"File {new_path.name} already exists")
+    insights.rename(VAULT, notes, note["id"], title)
+    return {"id": note_id(title)}

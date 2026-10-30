@@ -20,7 +20,7 @@ function clip(n, toward, pad = 5) {
  * bounce after it; links are elastic strings that wobble as cards move.
  */
 const Graph = forwardRef(function Graph(
-  { nodes, edges, visible, matches, selected, hovered, onHover, onSelect, onBackground },
+  { nodes, edges, visible, matches, selected, hovered, onHover, onSelect, onBackground, calm = false },
   ref,
 ) {
   const wrapRef = useRef(null);
@@ -36,10 +36,12 @@ const Graph = forwardRef(function Graph(
   const drag = useRef(null);
   const settled = useRef(false);
   const [, force] = useState(0);
+  const calmRef = useRef(calm);
+  const still = () => calmRef.current || reducedMotion(); // "keep the graph still" or the OS asks for less motion
 
   /* ---------- drawing (runs every tick, outside React) ---------- */
   const draw = () => {
-    const calm = reducedMotion();
+    const calm = still();
     for (const n of sim.current?.nodes() || []) {
       const el = slots.current.get(n.id);
       if (!el) continue;
@@ -76,11 +78,17 @@ const Graph = forwardRef(function Graph(
     }
   };
 
+  useEffect(() => {
+    calmRef.current = calm;
+    const s = sim.current;
+    if (!s) return;
+    s.velocityDecay(still() ? 0.45 : 0.22).alphaTarget(still() ? 0 : 0.012).restart();
+  }, [calm]);
+
   /* ---------- simulation ---------- */
   useEffect(() => {
-    const calm = reducedMotion();
     const s = forceSimulation()
-      .velocityDecay(calm ? 0.45 : 0.22)
+      .velocityDecay(still() ? 0.45 : 0.22)
       .alphaDecay(0.018)
       .force("link", forceLink().id((d) => d.id).distance((l) => 120 + ((l.source.w || 80) + (l.target.w || 80)) * 0.22).strength(0.32))
       .force("charge", forceManyBody().strength(-480).distanceMax(700))
@@ -88,17 +96,18 @@ const Graph = forwardRef(function Graph(
       .force("x", forceX(0).strength(0.035))
       .force("y", forceY(0).strength(0.05))
       .on("tick", draw);
-    if (!calm) {
+    {
       // a gentle drift so the graph feels alive while idle
       let t = 0;
       s.force("float", () => {
         t += 1;
+        if (still()) return;
         for (const n of s.nodes()) {
           n.vx += Math.sin(t * 0.011 + n.phase) * 0.012;
           n.vy += Math.cos(t * 0.009 + n.phase * 1.3) * 0.012;
         }
       });
-      s.alphaTarget(0.012);
+      s.alphaTarget(still() ? 0 : 0.012);
     }
     sim.current = s;
     const onVis = () => (document.hidden ? s.stop() : s.restart());
@@ -228,7 +237,7 @@ const Graph = forwardRef(function Graph(
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
       n.fx = null; n.fy = null;
-      sim.current.alphaTarget(reducedMotion() ? 0 : 0.012);
+      sim.current.alphaTarget(still() ? 0 : 0.012);
       if (!drag.current.moved) onSelect(id);
       drag.current = null;
     };

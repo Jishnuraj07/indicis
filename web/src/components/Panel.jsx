@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { TYPES, api, cap, noteUrl, plural, typeVar } from "../api.js";
-import Markdown from "./Markdown.jsx";
+import Editor from "./Editor.jsx";
+import Markdown, { Snippet } from "./Markdown.jsx";
 
 /* ---------- building blocks ---------- */
 export function Card({ tab, tone, ghost, title, sub, children, foot, cardKey }) {
@@ -46,6 +47,7 @@ function Flash({ msg }) {
 export function Home({ nodes, edges, onOpen }) {
   const notes = nodes.filter((n) => !n.ghost);
   const ghosts = nodes.filter((n) => n.ghost);
+  const orphans = notes.filter((n) => n.degree === 0 && n.type !== "journal");
   const top = [...notes].sort((a, b) => b.degree - a.degree).slice(0, 6);
   return (
     <>
@@ -54,51 +56,88 @@ export function Home({ nodes, edges, onOpen }) {
         <div className="ruled prose">
           <p>Each card is a note in your <code>vault</code> folder. Write <code>[[Note title]]</code> to link two notes, and they connect here.</p>
           <p>Drag a card to pull its neighbours along. Click one to read it. Dashed cards are notes you've linked to but not written yet.</p>
+          <p>Press <code>c</code> to jot something into today's note, and <code>/</code> to search everything you've written.</p>
         </div>
       </Card>
       <LinkList title="Most connected" nodes={top} onOpen={onOpen} />
       <LinkList title="Not written yet" nodes={ghosts} onOpen={onOpen} />
+      <LinkList title="Not linked to anything" nodes={orphans} onOpen={onOpen} />
     </>
   );
 }
 
 /* ---------- a note ---------- */
-export function NoteView({ id, node, neighbours, ghosts, onOpen, onTag, reload }) {
+export function NoteView({ id, ghosts, titles, byId, version, onOpen, onTag, reload, onRenamed }) {
   const [note, setNote] = useState(null);
+  const [ctx, setCtx] = useState(null); // backlinks, mentions, related
   const [error, setError] = useState(null);
   const [editing, setEditing] = useState(false);
+  const [renaming, setRenaming] = useState(null); // null | draft title
   const [draft, setDraft] = useState("");
   const [flash, setFlash] = useState(null);
   const [sugg, setSugg] = useState(null); // null | "loading" | {links,tags} | {error}
 
   const load = async () => {
-    try { setNote(await api(noteUrl(id))); setError(null); } catch (e) { setError(e.message); }
+    try {
+      const [n, c] = await Promise.all([api(noteUrl(id)), api(noteUrl(id) + "/context")]);
+      setNote(n); setCtx(c); setError(null);
+    } catch (e) { setError(e.message); }
   };
-  useEffect(() => { setNote(null); setEditing(false); setSugg(null); setFlash(null); load(); }, [id]);
+  useEffect(() => { setNote(null); setCtx(null); setEditing(false); setRenaming(null); setSugg(null); setFlash(null); load(); }, [id]);
+  // files changed on disk (here or in another app): refresh unless mid-edit
+  useEffect(() => { if (note && !editing) load(); }, [version]);
   useEffect(() => { if (flash) { const t = setTimeout(() => setFlash(null), 3500); return () => clearTimeout(t); } }, [flash]);
 
   if (error) return <div className="note err">{error}</div>;
   if (!note) return <div className="card skeleton" aria-busy="true" />;
 
+  const after = async (msg) => { await reload(); await load(); if (msg) setFlash({ kind: "ok", text: msg }); };
   const save = async () => {
     try {
       await api(noteUrl(id), { method: "PUT", body: JSON.stringify({ raw: draft }) });
       setEditing(false);
+      await after("Saved.");
+    } catch (e) { setFlash({ kind: "err", text: e.message }); }
+  };
+  const rename = async () => {
+    const title = renaming.trim();
+    if (!title || title === note.title) return setRenaming(null);
+    try {
+      const r = await api(noteUrl(id) + "/rename", { method: "POST", body: JSON.stringify({ title }) });
       await reload();
-      await load();
-      setFlash({ kind: "ok", text: "Saved." });
+      onRenamed(r.id);
     } catch (e) { setFlash({ kind: "err", text: e.message }); }
   };
   const suggest = async () => {
     setSugg("loading");
     try { setSugg(await api(noteUrl(id) + "/suggest", { method: "POST" })); } catch (e) { setSugg({ error: e.message }); }
   };
+  const linkMention = async (m) => {
+    try {
+      await api(noteUrl(id) + "/link-mention", { method: "POST", body: JSON.stringify({ source: m.id }) });
+      await after(`Linked from ${m.title}.`);
+    } catch (e) { setFlash({ kind: "err", text: e.message }); }
+  };
+  const linkRelated = async (r) => {
+    try {
+      await api(noteUrl(id) + "/accept", { method: "POST", body: JSON.stringify({ links: [r.title], tags: [] }) });
+      await after(`Linked to ${r.title}.`);
+    } catch (e) { setFlash({ kind: "err", text: e.message }); }
+  };
+
+  const outgoing = note.links.map((l) => byId.get(l.toLowerCase())).filter(Boolean);
+  const titleEl = renaming !== null ? (
+    <input className="rename" autoFocus value={renaming} aria-label="New title"
+      onChange={(e) => setRenaming(e.target.value)}
+      onKeyDown={(e) => { if (e.key === "Enter") rename(); if (e.key === "Escape") setRenaming(null); }} />
+  ) : note.title;
 
   return (
     <>
-      <Card cardKey={id} tab={cap(note.type)} tone={typeVar(note.type)} title={note.title}
+      <Card cardKey={id} tab={cap(note.type)} tone={typeVar(note.type)} title={titleEl}
         sub={<>
-          {note.links.length ? `Links to ${note.links.length}` : "No links yet"}{neighbours.length ? `, connected to ${neighbours.length}` : ""}
+          {note.links.length ? `Links to ${note.links.length}` : "No links yet"}
+          {ctx?.backlinks.length ? `, linked from ${ctx.backlinks.length}` : ""}
           {note.tags.length > 0 && (
             <div className="chips">{note.tags.map((t) => <button key={t} className="chip" onClick={() => onTag(t)}>#{t}</button>)}</div>
           )}
@@ -106,18 +145,18 @@ export function NoteView({ id, node, neighbours, ghosts, onOpen, onTag, reload }
         foot={editing ? <>
           <button className="btn ink" onClick={save}>Save</button>
           <button className="btn quiet" onClick={() => setEditing(false)}>Cancel</button>
-          <span className="kbd">Ctrl+S saves</span>
+          <span className="kbd">Type [[ to link. Ctrl+S saves</span>
+        </> : renaming !== null ? <>
+          <button className="btn ink" onClick={rename}>Rename</button>
+          <button className="btn quiet" onClick={() => setRenaming(null)}>Cancel</button>
+          <span className="kbd">Links to it are updated too</span>
         </> : <>
           <button className="btn" onClick={() => { setDraft(note.raw); setEditing(true); }}>Edit</button>
-          <button className="btn" onClick={suggest} disabled={sugg === "loading"}>Suggest links</button>
+          <button className="btn" onClick={() => setRenaming(note.title)}>Rename</button>
+          <button className="btn" onClick={suggest} disabled={sugg === "loading"}>Ask Claude for links</button>
         </>}>
         {editing ? (
-          <textarea className="ruled editor" autoFocus spellCheck value={draft} aria-label="Note text"
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if ((e.ctrlKey || e.metaKey) && e.key === "s") { e.preventDefault(); save(); }
-              if (e.key === "Escape") setEditing(false);
-            }} />
+          <Editor value={draft} onChange={setDraft} titles={titles} onSave={save} onCancel={() => setEditing(false)} />
         ) : (
           <Markdown body={note.body} title={note.title} ghosts={ghosts} onOpen={onOpen} />
         )}
@@ -128,10 +167,65 @@ export function NoteView({ id, node, neighbours, ghosts, onOpen, onTag, reload }
         {sugg?.error && <div className="note err">{sugg.error}</div>}
         {sugg?.links && (
           <Suggestions id={id} title="Suggested by Claude" s={sugg}
-            onAdded={async (msg) => { setSugg(null); await reload(); await load(); setFlash({ kind: "ok", text: msg }); }} />
+            onAdded={async (msg) => { setSugg(null); await after(msg); }} />
         )}
       </div>
-      <LinkList title="Connected notes" nodes={neighbours} onOpen={onOpen} />
+
+      {ctx?.backlinks.length > 0 && (
+        <section className="section">
+          <h3>Linked from</h3>
+          <ul className="context">
+            {ctx.backlinks.map((b) => (
+              <li key={b.id}>
+                <button className="ctx-title" onClick={() => onOpen(b.id)}>
+                  <span className="sw" style={{ "--c": `var(${typeVar(b.type)})` }} />{b.title}
+                </button>
+                {b.snippets.map((s, i) => <p key={i}><Snippet text={s} ghosts={ghosts} onOpen={onOpen} /></p>)}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {ctx?.mentions.length > 0 && (
+        <section className="section">
+          <h3>Mentioned without a link</h3>
+          <ul className="context">
+            {ctx.mentions.map((m) => (
+              <li key={m.id}>
+                <div className="ctx-row">
+                  <button className="ctx-title" onClick={() => onOpen(m.id)}>
+                    <span className="sw" style={{ "--c": `var(${typeVar(m.type)})` }} />{m.title}
+                  </button>
+                  <button className="btn small" onClick={() => linkMention(m)}>Link it</button>
+                </div>
+                <p><Snippet text={m.snippet} ghosts={ghosts} onOpen={onOpen} mark={m.match} /></p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {ctx?.related.length > 0 && (
+        <section className="section">
+          <h3>Similar notes <span className="hint">found on this computer</span></h3>
+          <ul className="context">
+            {ctx.related.map((r) => (
+              <li key={r.id}>
+                <div className="ctx-row">
+                  <button className="ctx-title" onClick={() => onOpen(r.id)}>
+                    <span className="sw" style={{ "--c": `var(${typeVar(r.type)})` }} />{r.title}
+                  </button>
+                  <button className="btn small" onClick={() => linkRelated(r)}>Link</button>
+                </div>
+                <p className="shared">Both mention {r.shared.join(", ")}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <LinkList title="Links to" nodes={outgoing} onOpen={onOpen} />
     </>
   );
 }

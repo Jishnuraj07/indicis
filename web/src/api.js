@@ -1,6 +1,6 @@
-export const TYPES = ["concept", "person", "book", "project", "note"];
+export const TYPES = ["concept", "person", "book", "project", "journal", "note"];
 
-export const typeVar = (t) => "--t-" + (TYPES.includes(t) ? t : t === "missing" ? "missing" : "note");
+export const typeVar = (t) => "--t-" + (TYPES.includes(t) || t === "missing" ? t : "note");
 export const cap = (s) => s[0].toUpperCase() + s.slice(1);
 export const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
 export const noteUrl = (id) => "/api/notes/" + encodeURIComponent(id);
