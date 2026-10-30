@@ -16,6 +16,7 @@ Import PDFs and papers as notes. Let Claude suggest connections you missed, only
 ![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)
 ![Local-first](https://img.shields.io/badge/data-local--first-2f7d4f)
 ![Obsidian compatible](https://img.shields.io/badge/vault-Obsidian%20compatible-7c3aed?logo=obsidian&logoColor=white)
+[![License: MIT](https://img.shields.io/badge/license-MIT-2643b0)](LICENSE)
 
 <br>
 
@@ -41,6 +42,7 @@ Import PDFs and papers as notes. Let Claude suggest connections you missed, only
 - [Configuration](#configuration)
 - [Privacy](#privacy)
 - [Acknowledgements](#acknowledgements)
+- [License](#license)
 
 ## Why Indicis
 
@@ -243,3 +245,7 @@ Your notes stay in a folder on your computer. Search, similar notes, document co
 - [d3-force](https://github.com/d3/d3-force), [Next.js](https://nextjs.org), [FastAPI](https://fastapi.tiangolo.com) and [marked](https://marked.js.org)
 - [Spectral](https://fonts.google.com/specimen/Spectral) and [IBM Plex Sans Condensed](https://fonts.google.com/specimen/IBM+Plex+Sans+Condensed) typefaces
 - Niklas Luhmann's Zettelkasten and Andy Matuschak's writing on evergreen notes, for the ideas
+
+## License
+
+Indicis is released under the [MIT License](LICENSE).
