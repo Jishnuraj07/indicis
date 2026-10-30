@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Knowledge Graph</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.30.2/cytoscape.min.js"></script>
+<style>
+  :root {
+    --bg: #f6f5f2; --panel: #ffffff; --ink: #1d1d1f; --muted: #6b6b70; --line: #e2e0da;
+    --accent: #3b5bdb; --edge: #c9c6be; --ghost: #a3a19b; --danger: #c92a2a; --ok: #2b8a3e;
+    --t-concept: #3b5bdb; --t-person: #d9480f; --t-book: #2b8a3e; --t-project: #9c36b5; --t-note: #495057;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #141416; --panel: #1d1d20; --ink: #ececef; --muted: #9a9aa2; --line: #2e2e33;
+      --accent: #748ffc; --edge: #44444b; --ghost: #6d6d75; --danger: #ff8787; --ok: #69db7c;
+      --t-concept: #748ffc; --t-person: #ff922b; --t-book: #69db7c; --t-project: #da77f2; --t-note: #adb5bd;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #141416; --panel: #1d1d20; --ink: #ececef; --muted: #9a9aa2; --line: #2e2e33;
+    --accent: #748ffc; --edge: #44444b; --ghost: #6d6d75; --danger: #ff8787; --ok: #69db7c;
+    --t-concept: #748ffc; --t-person: #ff922b; --t-book: #69db7c; --t-project: #da77f2; --t-note: #adb5bd;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .app { display: grid; grid-template-columns: 1fr 380px; grid-template-rows: auto 1fr; height: 100vh; }
+  header { grid-column: 1 / -1; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  header h1 { font-size: 15px; margin: 0 8px 0 0; font-weight: 650; }
+  input, select, textarea, button { font: inherit; color: inherit; }
+  input[type=search], select, input[type=text] { background: var(--bg); border: 1px solid var(--line);
+    border-radius: 8px; padding: 6px 10px; }
+  input[type=search] { width: 220px; }
+  button { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button:disabled { opacity: .5; cursor: default; }
+  label.toggle { display: flex; gap: 6px; align-items: center; color: var(--muted); }
+  .spacer { flex: 1; }
+  #cy { min-height: 0; position: relative; }
+  .legend { position: absolute; left: 12px; bottom: 12px; display: flex; gap: 10px; flex-wrap: wrap;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px;
+    font-size: 12px; color: var(--muted); z-index: 2; }
+  .legend span::before { content: ""; display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+    margin-right: 5px; background: var(--c); border: 1px dashed var(--b, transparent); }
+  aside { border-left: 1px solid var(--line); background: var(--panel); overflow: auto; padding: 16px; min-height: 0; }
+  aside h2 { font-size: 17px; margin: 0 0 4px; }
+  .meta { color: var(--muted); font-size: 12px; margin-bottom: 12px; }
+  .chip { display: inline-block; padding: 1px 8px; border-radius: 999px; background: var(--bg);
+    border: 1px solid var(--line); font-size: 12px; margin: 0 4px 4px 0; }
+  textarea { width: 100%; min-height: 260px; resize: vertical; background: var(--bg); border: 1px solid var(--line);
+    border-radius: 8px; padding: 10px; font-family: ui-monospace, Consolas, monospace; font-size: 13px; }
+  .row { display: flex; gap: 8px; margin: 10px 0; flex-wrap: wrap; }
+  .sugg { border-top: 1px solid var(--line); margin-top: 14px; padding-top: 12px; }
+  .sugg h3 { font-size: 13px; margin: 0 0 8px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  .sugg label { display: flex; gap: 8px; align-items: flex-start; padding: 6px 0; }
+  .sugg small { color: var(--muted); display: block; }
+  .new { font-size: 11px; color: var(--accent); margin-left: 4px; }
+  .msg { padding: 8px 10px; border-radius: 8px; background: var(--bg); border: 1px solid var(--line); margin: 8px 0; }
+  .msg.err { color: var(--danger); }
+  .msg.ok { color: var(--ok); }
+  .empty { color: var(--muted); }
+  .empty ul { padding-left: 18px; }
+  .scan-item { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin: 8px 0; }
+  .scan-item b { cursor: pointer; color: var(--accent); }
+  @media (max-width: 800px) {
+    .app { grid-template-columns: 1fr; grid-template-rows: auto 55vh auto; height: auto; }
+    aside { border-left: 0; border-top: 1px solid var(--line); }
+    input[type=search] { width: 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Knowledge Graph</h1>
+    <input type="search" id="search" placeholder="Search notes…">
+    <select id="typeFilter"><option value="">All types</option></select>
+    <select id="tagFilter"><option value="">All tags</option></select>
+    <label class="toggle"><input type="checkbox" id="localToggle"> Local graph</label>
+    <div class="spacer"></div>
+    <button id="newBtn">+ New note</button>
+    <button id="scanBtn" title="Ask Claude for link suggestions across every note">Scan all with AI</button>
+    <button id="layoutBtn" title="Re-run the layout">Re-layout</button>
+    <button id="themeBtn" title="Toggle light/dark">◐</button>
+  </header>
+  <div id="cy"><div class="legend" id="legend"></div></div>
+  <aside id="panel"></aside>
+</div>
+
+<script>
+const TYPES = ["concept", "person", "book", "project", "note"];
+const $ = (s) => document.querySelector(s);
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const api = async (path, opts = {}) => {
+  const r = await fetch(path, { headers: { "Content-Type": "application/json" }, ...opts });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.detail || r.statusText);
+  return data;
+};
+const noteUrl = (id) => "/api/notes/" + encodeURIComponent(id);
+
+let cy, selected = null;
+
+function typeColor(t) { return css("--t-" + (TYPES.includes(t) ? t : "note")); }
+
+function styles() {
+  return [
+    { selector: "node", style: {
+      "background-color": (n) => n.data("ghost") ? css("--bg") : typeColor(n.data("type")),
+      "border-width": (n) => n.data("ghost") ? 1.5 : 0,
+      "border-style": "dashed", "border-color": css("--ghost"),
+      "width": (n) => 14 + Math.min(n.data("degree"), 12) * 4,
+      "height": (n) => 14 + Math.min(n.data("degree"), 12) * 4,
+      "label": "data(label)", "color": css("--ink"), "font-size": 11,
+      "text-valign": "bottom", "text-margin-y": 4,
+      "text-outline-color": css("--bg"), "text-outline-width": 2,
+    }},
+    { selector: "edge", style: {
+      "width": 1.2, "line-color": css("--edge"), "curve-style": "bezier",
+      "target-arrow-shape": "triangle", "target-arrow-color": css("--edge"), "arrow-scale": 0.6,
+    }},
+    { selector: ".faded", style: { "opacity": 0.12 } },
+    { selector: ".hidden", style: { "display": "none" } },
+    { selector: "node.hl", style: { "border-width": 3, "border-style": "solid", "border-color": css("--accent") } },
+    { selector: "edge.hl", style: { "line-color": css("--accent"), "target-arrow-color": css("--accent"), "width": 2 } },
+    { selector: "node:selected", style: { "border-width": 3, "border-style": "solid", "border-color": css("--ink") } },
+  ];
+}
+
+function legend() {
+  $("#legend").innerHTML = TYPES.map((t) => `<span style="--c:${typeColor(t)}">${t}</span>`).join("")
+    + `<span style="--c:transparent;--b:${css("--ghost")}">missing (ghost)</span>`;
+}
+
+async function loadGraph(keepPositions = true) {
+  const g = await api("/api/graph");
+  const old = {};
+  if (cy && keepPositions) cy.nodes().forEach((n) => (old[n.id()] = n.position()));
+  const fresh = !cy;
+  if (fresh) {
+    cy = cytoscape({ container: $("#cy"), elements: [], style: styles(), wheelSensitivity: 0.3, minZoom: 0.2, maxZoom: 3 });
+    bindEvents();
+  }
+  cy.elements().remove();
+  cy.add([...g.nodes, ...g.edges]);
+  const allKnown = cy.nodes().every((n) => old[n.id()]);
+  if (allKnown && !fresh) {
+    cy.nodes().forEach((n) => n.position(old[n.id()]));
+  } else {
+    cy.nodes().forEach((n) => old[n.id()] && n.position(old[n.id()]));
+    runLayout();
+  }
+  fillFilters(g.nodes);
+  applyFilters();
+  if (selected && cy.getElementById(selected).length) cy.getElementById(selected).select();
+}
+
+function runLayout() {
+  cy.layout({ name: "cose", animate: true, animationDuration: 500, nodeRepulsion: 9000, idealEdgeLength: 90, padding: 40 }).run();
+}
+
+function fillFilters(nodes) {
+  const keep = (sel, values, label) => {
+    const cur = sel.value;
+    sel.innerHTML = `<option value="">${label}</option>` + values.map((v) => `<option>${esc(v)}</option>`).join("");
+    if (values.includes(cur)) sel.value = cur;
+  };
+  const types = [...new Set(nodes.map((n) => n.data.type))].sort();
+  const tags = [...new Set(nodes.flatMap((n) => n.data.tags))].sort();
+  keep($("#typeFilter"), types, "All types");
+  keep($("#tagFilter"), tags, "All tags");
+}
+
+function applyFilters() {
+  const q = $("#search").value.trim().toLowerCase();
+  const type = $("#typeFilter").value, tag = $("#tagFilter").value;
+  const local = $("#localToggle").checked && selected;
+  cy.batch(() => {
+    cy.elements().removeClass("hidden faded");
+    let visible = cy.nodes().filter((n) => (!type || n.data("type") === type) && (!tag || n.data("tags").includes(tag)));
+    if (local) {
+      const center = cy.getElementById(selected);
+      visible = visible.intersection(center.closedNeighborhood().closedNeighborhood().nodes());
+    }
+    cy.nodes().not(visible).addClass("hidden");
+    if (q) {
+      const match = visible.filter((n) => n.data("label").toLowerCase().includes(q));
+      cy.elements().not(match).not(match.connectedEdges()).addClass("faded");
+    }
+  });
+}
+
+function bindEvents() {
+  cy.on("tap", "node", (e) => openNote(e.target.id()));
+  cy.on("tap", (e) => { if (e.target === cy) { selected = null; showHome(); applyFilters(); } });
+  cy.on("mouseover", "node", (e) => {
+    const n = e.target;
+    n.closedNeighborhood().addClass("hl");
+  });
+  cy.on("mouseout", "node", () => cy.elements().removeClass("hl"));
+}
+
+/* ---------- side panel ---------- */
+function showHome() {
+  const n = cy ? cy.nodes().filter((x) => !x.data("ghost")).length : 0;
+  $("#panel").innerHTML = `
+    <h2>Your graph</h2>
+    <div class="meta">${n} notes · ${cy ? cy.edges().length : 0} links</div>
+    <div class="empty">
+      <p>Click a node to read and edit it. Hover to see its neighbours.</p>
+      <ul>
+        <li>Link notes by writing <code>[[Note Title]]</code>.</li>
+        <li>Tag with <code>#tag</code>; set <code>type:</code> in the front matter (concept, person, book, project).</li>
+        <li>Dashed nodes are links to notes that don't exist yet. Click one to create it.</li>
+        <li>Open a note and press <b>Suggest links</b> to let Claude find connections.</li>
+      </ul>
+      <p>Notes live as Markdown files in the <code>vault/</code> folder, so you can also open it in Obsidian.</p>
+    </div>`;
+}
+
+async function openNote(id) {
+  selected = id;
+  applyFilters();
+  const node = cy.getElementById(id);
+  if (node.data("ghost")) return showGhost(node);
+  const panel = $("#panel");
+  let note;
+  try { note = await api(noteUrl(id)); } catch (e) { panel.innerHTML = `<div class="msg err">${esc(e.message)}</div>`; return; }
+  panel.innerHTML = `
+    <h2>${esc(note.title)}</h2>
+    <div class="meta">${esc(note.type)} · ${esc(note.file)} · ${note.links.length} links out</div>
+    <div>${note.tags.map((t) => `<span class="chip">#${esc(t)}</span>`).join("")}</div>
+    <textarea id="editor" spellcheck="true"></textarea>
+    <div class="row">
+      <button class="primary" id="saveBtn">Save</button>
+      <button id="suggestBtn">✦ Suggest links (AI)</button>
+    </div>
+    <div id="status"></div>
+    <div id="sugg"></div>`;
+  $("#editor").value = note.raw;
+  $("#editor").addEventListener("keydown", (e) => { if ((e.ctrlKey || e.metaKey) && e.key === "s") { e.preventDefault(); save(id); } });
+  $("#saveBtn").onclick = () => save(id);
+  $("#suggestBtn").onclick = () => suggest(id);
+}
+
+function status(text, kind = "") { const s = $("#status"); if (s) s.innerHTML = text ? `<div class="msg ${kind}">${esc(text)}</div>` : ""; }
+
+async function save(id) {
+  try {
+    await api(noteUrl(id), { method: "PUT", body: JSON.stringify({ raw: $("#editor").value }) });
+    status("Saved.", "ok");
+    await loadGraph();
+  } catch (e) { status(e.message, "err"); }
+}
+
+async function suggest(id) {
+  const btn = $("#suggestBtn");
+  btn.disabled = true; btn.textContent = "Thinking…";
+  status("");
+  try {
+    const s = await api(noteUrl(id) + "/suggest", { method: "POST" });
+    renderSuggestions(id, s, $("#sugg"));
+  } catch (e) { status(e.message, "err"); }
+  btn.disabled = false; btn.textContent = "✦ Suggest links (AI)";
+}
+
+function renderSuggestions(id, s, el, onDone) {
+  if (!s.links.length && !s.tags.length) { el.innerHTML = `<div class="sugg"><p class="empty">No new suggestions for this note.</p></div>`; return; }
+  el.innerHTML = `<div class="sugg">
+    ${s.links.length ? `<h3>Links</h3>` + s.links.map((l, i) => `
+      <label><input type="checkbox" data-link="${i}" checked>
+        <span>${esc(l.target)}${l.existing ? "" : `<span class="new">new note</span>`}<small>${esc(l.reason)}</small></span></label>`).join("") : ""}
+    ${s.tags.length ? `<h3>Tags</h3>` + s.tags.map((t, i) => `
+      <label><input type="checkbox" data-tag="${i}" checked><span>#${esc(t)}</span></label>`).join("") : ""}
+    <div class="row"><button class="primary" data-accept>Add selected to note</button></div>
+  </div>`;
+  el.querySelector("[data-accept]").onclick = async () => {
+    const links = [...el.querySelectorAll("[data-link]:checked")].map((c) => s.links[c.dataset.link].target);
+    const tags = [...el.querySelectorAll("[data-tag]:checked")].map((c) => s.tags[c.dataset.tag]);
+    try {
+      const r = await api(noteUrl(id) + "/accept", { method: "POST", body: JSON.stringify({ links, tags }) });
+      el.innerHTML = `<div class="msg ok">Added ${r.added_links.length} links and ${r.added_tags.length} tags.</div>`;
+      await loadGraph();
+      if (onDone) onDone(); else openNote(id);
+    } catch (e) { el.innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
+  };
+}
+
+function showGhost(node) {
+  const title = node.data("label");
+  const from = node.connectedEdges().sources().filter((n) => n.id() !== node.id()).map((n) => esc(n.data("label")));
+  $("#panel").innerHTML = `
+    <h2>${esc(title)}</h2>
+    <div class="meta">Missing note · linked from ${from.join(", ") || "nowhere"}</div>
+    <p class="empty">This note doesn't exist yet. Create it to start writing.</p>
+    <div class="row">
+      <select id="ghostType">${TYPES.map((t) => `<option>${t}</option>`).join("")}</select>
+      <button class="primary" id="createBtn">Create note</button>
+    </div><div id="status"></div>`;
+  $("#createBtn").onclick = () => createNote(title, $("#ghostType").value);
+}
+
+async function createNote(title, type) {
+  try {
+    const r = await api("/api/notes", { method: "POST", body: JSON.stringify({ title, type }) });
+    await loadGraph();
+    openNote(r.id);
+  } catch (e) { status(e.message, "err"); }
+}
+
+function showNewForm() {
+  $("#panel").innerHTML = `
+    <h2>New note</h2>
+    <div class="row" style="flex-direction:column">
+      <input type="text" id="newTitle" placeholder="Title">
+      <select id="newType">${TYPES.map((t) => `<option>${t}</option>`).join("")}</select>
+      <button class="primary" id="createBtn">Create</button>
+    </div><div id="status"></div>`;
+  $("#newTitle").focus();
+  const go = () => $("#newTitle").value.trim() && createNote($("#newTitle").value.trim(), $("#newType").value);
+  $("#createBtn").onclick = go;
+  $("#newTitle").onkeydown = (e) => e.key === "Enter" && go();
+}
+
+async function scanAll() {
+  const ids = cy.nodes().filter((n) => !n.data("ghost")).map((n) => n.id());
+  selected = null; applyFilters();
+  $("#panel").innerHTML = `<h2>AI scan</h2><div class="meta" id="scanMeta"></div><div id="status"></div><div id="scanList"></div>`;
+  $("#scanBtn").disabled = true;
+  let found = 0;
+  for (let i = 0; i < ids.length; i++) {
+    const label = cy.getElementById(ids[i]).data("label");
+    $("#scanMeta").textContent = `Scanning ${i + 1} of ${ids.length}: ${label}`;
+    try {
+      const s = await api(noteUrl(ids[i]) + "/suggest", { method: "POST" });
+      if (!s.links.length && !s.tags.length) continue;
+      found++;
+      const box = document.createElement("div");
+      box.className = "scan-item";
+      box.innerHTML = `<b>${esc(label)}</b><div></div>`;
+      box.querySelector("b").onclick = () => openNote(ids[i]);
+      $("#scanList").append(box);
+      renderSuggestions(ids[i], s, box.querySelector("div"), () => {});
+    } catch (e) { status(e.message, "err"); break; }
+  }
+  $("#scanMeta").textContent = `Done. ${found} of ${ids.length} notes have suggestions.`;
+  $("#scanBtn").disabled = false;
+}
+
+/* ---------- theme ---------- */
+function setTheme(t) {
+  if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme;
+  try { t ? localStorage.setItem("kg-theme", t) : localStorage.removeItem("kg-theme"); } catch {}
+  if (cy) cy.style(styles());
+  legend();
+}
+$("#themeBtn").onclick = () => {
+  const dark = document.documentElement.dataset.theme
+    ? document.documentElement.dataset.theme === "dark"
+    : matchMedia("(prefers-color-scheme: dark)").matches;
+  setTheme(dark ? "light" : "dark");
+};
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (cy) cy.style(styles()); legend(); });
+
+$("#search").oninput = applyFilters;
+$("#typeFilter").onchange = applyFilters;
+$("#tagFilter").onchange = applyFilters;
+$("#localToggle").onchange = applyFilters;
+$("#layoutBtn").onclick = runLayout;
+$("#newBtn").onclick = showNewForm;
+$("#scanBtn").onclick = scanAll;
+
+(async () => {
+  let saved = null;
+  try { saved = localStorage.getItem("kg-theme"); } catch {}
+  setTheme(saved);
+  await loadGraph(false);
+  showHome();
+})();
+</script>
+</body>
+</html>
