@@ -28,6 +28,7 @@ export default function Palette() {
     { label: "Jot something down", key: "c", run: () => { close(); v.setCapturing(true); } },
     { label: "Open today's note", key: "t", run: () => { close(); today(); } },
     { label: "Open the map of all notes", key: "m", run: () => { close(); router.push("/map/"); } },
+    { label: "Import a document (PDF, Word, slides, scans)", run: () => { close(); v.imports.available === false ? v.setInstallHelp(true) : document.getElementById("import-picker")?.click(); } },
     { label: "Write a new note", run: () => { close(); router.push(q.trim() ? `/?new=${encodeURIComponent(q.trim())}` : "/?new=1"); } },
     { label: "Ask Claude to suggest links for every note", run: () => { close(); router.push("/?scan=1"); } },
     { label: v.calm ? "Let the graph move" : "Keep the graph still", run: () => { close(); v.setCalm(!v.calm); } },

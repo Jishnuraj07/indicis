@@ -2,3 +2,6 @@ fastapi>=0.110
 uvicorn>=0.29
 anthropic>=0.90
 python-frontmatter>=1.1
+
+# optional: import PDFs, Word, slides and scans as notes (large download, includes PyTorch)
+# docling>=2.140

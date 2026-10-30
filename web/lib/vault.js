@@ -1,6 +1,6 @@
 "use client";
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { TYPES, api } from "./api.js";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { TYPES, api, upload } from "./api.js";
 
 const VaultContext = createContext(null);
 export const useVault = () => useContext(VaultContext);
@@ -33,6 +33,10 @@ export function VaultProvider({ children }) {
   const [capturing, setCapturing] = useState(false);
   const [palette, setPalette] = useState(false);
   const [toast, setToast] = useState(null);
+  const [imports, setImports] = useState({ available: null, jobs: [], accept: [] });
+  const [mine, setMine] = useState([]); // import jobs started from this window, shown in the tray
+  const [installHelp, setInstallHelp] = useState(false);
+  const jobStates = useRef(new Map());
 
   const reload = useCallback(async () => {
     const g = await api("/api/graph");
@@ -56,6 +60,44 @@ export function VaultProvider({ children }) {
     const t = setInterval(check, 3000);
     return () => clearInterval(t);
   }, [reload]);
+
+  /* ---------- importing documents (converted on this computer by Docling) ---------- */
+  const refreshImports = useCallback(async () => {
+    try {
+      const st = await api("/api/import");
+      setImports(st);
+      for (const j of st.jobs) {
+        const before = jobStates.current.get(j.id);
+        jobStates.current.set(j.id, j.state);
+        if (before && before !== "done" && j.state === "done") {
+          await reload();
+          setToast({ text: `Imported ${j.title || j.name}${j.parts ? ` as ${j.parts + 1} notes` : ""}.`, id: j.note_id });
+        }
+      }
+    } catch {}
+  }, [reload]);
+  useEffect(() => { refreshImports(); }, [refreshImports]);
+  const busy = imports.jobs.some((j) => mine.includes(j.id) && (j.state === "queued" || j.state === "converting"));
+  useEffect(() => {
+    if (!busy) return;
+    const t = setInterval(refreshImports, 1500);
+    return () => clearInterval(t);
+  }, [busy, refreshImports]);
+
+  const importFiles = async (files) => {
+    if (imports.available === false) return setInstallHelp(true);
+    for (const f of files) {
+      try {
+        const job = await upload(f);
+        jobStates.current.set(job.id, job.state);
+        setMine((m) => [job.id, ...m]);
+      } catch (e) {
+        if (e.status === 503) { setInstallHelp(true); break; }
+        setToast({ text: `${f.name}: ${e.message}` });
+      }
+    }
+    refreshImports();
+  };
 
   useEffect(() => {
     const root = document.documentElement;
@@ -92,6 +134,9 @@ export function VaultProvider({ children }) {
     graph, loaded, reload, version, ...derived,
     calm, setCalm, toggleTheme,
     capturing, setCapturing, palette, setPalette, toast, setToast,
+    imports, importFiles, installHelp, setInstallHelp,
+    myJobs: mine.map((id) => imports.jobs.find((j) => j.id === id)).filter(Boolean),
+    dismissJob: (id) => setMine((m) => m.filter((x) => x !== id)),
   };
   return <VaultContext.Provider value={value}>{children}</VaultContext.Provider>;
 }

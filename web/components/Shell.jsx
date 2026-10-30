@@ -1,5 +1,5 @@
 "use client";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { api, typeVar } from "@/lib/api.js";
@@ -28,6 +28,27 @@ function Frame({ children }) {
   const params = useSearchParams();
   useEffect(() => setMenu(false), [pathname, params]);
 
+  // drop documents anywhere to import them
+  const [dropping, setDropping] = useState(false);
+  useEffect(() => {
+    let depth = 0;
+    const hasFiles = (e) => [...(e.dataTransfer?.types || [])].includes("Files");
+    const enter = (e) => { if (hasFiles(e)) { depth++; setDropping(true); } };
+    const over = (e) => { if (hasFiles(e)) e.preventDefault(); };
+    const leave = (e) => { if (hasFiles(e) && --depth <= 0) { depth = 0; setDropping(false); } };
+    const drop = (e) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault(); depth = 0; setDropping(false);
+      v.importFiles([...e.dataTransfer.files]);
+    };
+    window.addEventListener("dragenter", enter); window.addEventListener("dragover", over);
+    window.addEventListener("dragleave", leave); window.addEventListener("drop", drop);
+    return () => {
+      window.removeEventListener("dragenter", enter); window.removeEventListener("dragover", over);
+      window.removeEventListener("dragleave", leave); window.removeEventListener("drop", drop);
+    };
+  }, [v.importFiles]);
+
   useEffect(() => {
     const onKey = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); v.setPalette(true); return; }
@@ -46,6 +67,13 @@ function Frame({ children }) {
       <Rail onToday={today} onMenu={() => setMenu(!menu)} />
       <div className="main">{children}</div>
       {v.capturing && <Capture />}
+      {dropping && (
+        <div className="drop-zone" aria-hidden="true">
+          <div className="drop-card"><h2>Drop to import</h2><p>PDFs, Word, slides, web pages and scans become notes. They're converted on this computer.</p></div>
+        </div>
+      )}
+      <ImportTray />
+      {v.installHelp && <InstallHelp />}
       {v.palette && <Palette />}
       {v.toast && (
         <div className="toast" role="status">{v.toast.text}
@@ -117,6 +145,7 @@ function Rail({ onToday, onMenu }) {
           <button className="btn" onClick={onToday}>Today <kbd>t</kbd></button>
           <Link className={`btn${onMap ? " active" : ""}`} href="/map/">Map <kbd>m</kbd></Link>
           <Link className="btn" href="/?new=1">New note</Link>
+          <ImportButton />
         </div>
 
         <NavList title="Recently edited" items={v.recent} current={current} empty="Notes you write show up here." />
@@ -186,6 +215,68 @@ export function CaptureBox({ autoFocus, onDone, onCancel, inline }) {
         <span className="kbd">Enter saves, Shift+Enter adds a line</span>
         {onCancel && !inline && <button className="btn quiet" onClick={onCancel}>Cancel</button>}
         <button className="btn ink" onClick={save} disabled={busy || (inline && !text.trim())}>Save to today</button>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- importing documents ---------- */
+export function ImportButton({ className = "btn" }) {
+  const v = useVault();
+  const input = useRef(null);
+  return (
+    <>
+      <button className={className} title="Turn a PDF, Word file, slides or scan into notes"
+        onClick={() => (v.imports.available === false ? v.setInstallHelp(true) : input.current.click())}>
+        Import
+      </button>
+      <input ref={input} id="import-picker" type="file" multiple hidden accept={v.imports.accept.join(",")}
+        onChange={(e) => { v.importFiles([...e.target.files]); e.target.value = ""; }} />
+    </>
+  );
+}
+
+function ImportTray() {
+  const v = useVault();
+  const { open } = useOpen();
+  if (!v.myJobs.length) return null;
+  return (
+    <div className="tray" aria-live="polite">
+      {v.myJobs.slice(0, 4).map((j) => (
+        <div key={j.id} className={`job ${j.state}`}>
+          <span className="job-name">{j.title || j.name}</span>
+          <span className="job-state">
+            {j.state === "queued" && "Waiting to convert"}
+            {j.state === "converting" && <><span className="pen" />Converting on this computer</>}
+            {j.state === "done" && `Imported${j.parts ? ` as ${j.parts + 1} notes` : ""} in ${j.seconds}s`}
+            {j.state === "failed" && `Couldn't import: ${j.error}`}
+          </span>
+          {j.state === "done"
+            ? <button className="btn small" onClick={() => { open(j.note_id); v.dismissJob(j.id); }}>Open</button>
+            : j.state === "failed" && <button className="btn small quiet" onClick={() => v.dismissJob(j.id)}>Dismiss</button>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function InstallHelp() {
+  const v = useVault();
+  const close = () => v.setInstallHelp(false);
+  return (
+    <div className="scrim" onMouseDown={(e) => e.target === e.currentTarget && close()}>
+      <div className="capture-dialog">
+        <article className="card install" role="dialog" aria-label="Install Docling">
+          <div className="tab" style={{ "--c": "var(--t-source)" }}>Import</div>
+          <div className="card-head"><h2>Importing documents needs Docling</h2></div>
+          <div className="form">
+            <p>Docling turns PDFs, Word files, slides, web pages and scans into notes, entirely on this computer.
+              It's a large download (it includes PyTorch), so it isn't installed by default. Install it with:</p>
+            <pre>pip install docling</pre>
+            <p>Then restart the server. The first import also downloads Docling's layout and text-recognition models, so it takes a little longer.</p>
+          </div>
+          <div className="card-foot"><button className="btn ink" onClick={close}>Got it</button></div>
+        </article>
       </div>
     </div>
   );

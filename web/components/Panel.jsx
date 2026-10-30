@@ -137,7 +137,7 @@ export function NoteView({ id, ghosts, titles, byId, version, onOpen, onTag, rel
         {editing ? (
           <Editor value={draft} onChange={setDraft} titles={titles} onSave={save} onCancel={() => setEditing(false)} />
         ) : (
-          <Markdown body={note.body} title={note.title} ghosts={ghosts} onOpen={onOpen} />
+          <Markdown body={note.body} title={note.title} ghosts={ghosts} onOpen={onOpen} base={note.file.split("/").slice(0, -1).join("/")} />
         )}
       </Card>
       <div className="suggest">

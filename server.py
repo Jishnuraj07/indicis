@@ -1,13 +1,16 @@
 """Personal knowledge graph: FastAPI server over a folder of Markdown notes."""
+import json
 import os
 import re
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 import ai
+import importer
 import insights
 from parser import build_graph, load_vault, note_id, safe_filename
 
@@ -16,6 +19,7 @@ VAULT = Path(os.environ.get("KG_VAULT", ROOT / "vault")).resolve()
 VAULT.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(title="Knowledge Graph")
+imports = importer.Importer(VAULT)
 
 
 @app.middleware("http")
@@ -93,6 +97,37 @@ def daily(data: Capture):
     return {"id": insights.daily(VAULT, data.date, data.time, data.text)}
 
 
+@app.get("/api/import")
+def import_status():
+    return {"available": importer.available(), "jobs": imports.list(), "accept": sorted(importer.ACCEPT)}
+
+
+@app.post("/api/import")
+async def import_document(request: Request, name: str):
+    """Queue a document for conversion into notes. The body is the raw file; Docling runs on this computer."""
+    if not importer.available():
+        raise HTTPException(503, "Document import needs Docling. Run: pip install docling, then restart the server.")
+    name = Path(name).name or "document"
+    if Path(name).suffix.lower() not in importer.ACCEPT:
+        raise HTTPException(415, f"Can't import {Path(name).suffix or 'files without an extension'}. "
+                                 "Try PDF, Word, PowerPoint, Excel, HTML, EPUB or an image.")
+    if int(request.headers.get("content-length") or 0) > importer.MAX_BYTES:
+        raise HTTPException(413, "That file is over 200 MB.")
+    data = await request.body()
+    if len(data) > importer.MAX_BYTES:
+        raise HTTPException(413, "That file is over 200 MB.")
+    return imports.submit(name, data)
+
+
+@app.get("/api/files/{rel:path}")
+def vault_file(rel: str):
+    """Images and original files stored alongside notes (for imported documents)."""
+    path = (VAULT / rel).resolve()
+    if VAULT not in path.parents or not path.is_file():
+        raise HTTPException(404, "File not found")
+    return FileResponse(path)
+
+
 # These must come before the catch-all GET /api/notes/{nid:path} below.
 @app.get("/api/notes/{nid:path}/context")
 def context(nid: str):
@@ -131,7 +166,7 @@ def create_note(data: NewNote):
     path = VAULT / safe_filename(title)
     if path.exists():
         raise HTTPException(409, f"File {path.name} already exists")
-    front = f"---\ntitle: {title}\ntype: {data.type}\n---\n" if path.stem != title else f"---\ntype: {data.type}\n---\n"
+    front = f"---\ntitle: {json.dumps(title, ensure_ascii=False)}\ntype: {data.type}\n---\n" if path.stem != title else f"---\ntype: {data.type}\n---\n"
     path.write_text(f"{front}# {title}\n\n{data.body}\n", encoding="utf-8")
     return {"id": note_id(title)}
 

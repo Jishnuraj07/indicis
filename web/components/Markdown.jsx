@@ -1,6 +1,7 @@
 "use client";
 import { useMemo } from "react";
 import { marked } from "marked";
+import { fileUrl } from "@/lib/api.js";
 
 // [[links]] become clickable, #tags get styled, code spans are left alone.
 function linkify(md) {
@@ -10,9 +11,21 @@ function linkify(md) {
     .replace(/(^|\s)#([A-Za-z][\w-]*)/g, '$1<span class="tag">#$2</span>')).join("");
 }
 
-function finish(html, ghosts) {
+const local = (u) => u && !/^([a-z][a-z0-9+.-]*:|#|\/)/i.test(u);
+
+function finish(html, ghosts, base) {
   const tmp = document.createElement("div");
   tmp.innerHTML = html;
+  // images and files stored next to the note (e.g. an imported PDF and its figures)
+  tmp.querySelectorAll("img").forEach((img) => {
+    const src = img.getAttribute("src");
+    if (local(src)) img.setAttribute("src", fileUrl(base, decodeURI(src)));
+    img.setAttribute("loading", "lazy");
+  });
+  tmp.querySelectorAll("a[href]").forEach((a) => {
+    const href = a.getAttribute("href");
+    if (local(href)) { a.setAttribute("href", fileUrl(base, decodeURI(href))); a.setAttribute("target", "_blank"); }
+  });
   tmp.querySelectorAll('a[href^="#note:"]').forEach((a) => {
     const id = decodeURIComponent(a.getAttribute("href").slice(6));
     a.className = "wl" + (ghosts.has(id) ? " missing" : "");
@@ -26,11 +39,11 @@ const openLink = (onOpen) => (e) => {
   if (a) { e.preventDefault(); e.stopPropagation(); onOpen(a.dataset.open); }
 };
 
-export default function Markdown({ body, title, ghosts, onOpen }) {
+export default function Markdown({ body, title, ghosts, onOpen, base = "" }) {
   const html = useMemo(() => {
     const md = body.replace(/^\s*#\s+(.+)\n?/, (m, h) => (h.trim().toLowerCase() === title.toLowerCase() ? "" : m));
-    return finish(marked.parse(linkify(md).trim()), ghosts);
-  }, [body, title, ghosts]);
+    return finish(marked.parse(linkify(md).trim()), ghosts, base);
+  }, [body, title, ghosts, base]);
 
   if (!html) return <div className="ruled prose"><p className="empty-body">Nothing written yet.</p></div>;
   return <div className="ruled prose" dangerouslySetInnerHTML={{ __html: html }} onClick={openLink(onOpen)} />;
@@ -39,7 +52,7 @@ export default function Markdown({ body, title, ghosts, onOpen }) {
 // One line of context (a backlink, a mention, a search hit), with `mark` highlighted.
 export function Snippet({ text, ghosts, onOpen, mark }) {
   const html = useMemo(() => {
-    let h = finish(marked.parseInline(linkify(text)), ghosts);
+    let h = finish(marked.parseInline(linkify(text)), ghosts, "");
     if (mark) {
       const re = new RegExp(`(${mark.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})(?![^<]*>)`, "ig");
       h = h.replace(re, "<mark>$1</mark>");

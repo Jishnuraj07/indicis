@@ -1,6 +1,7 @@
 """Everyday helpers over the vault: backlinks, mentions, search, related notes, rename, daily notes.
 Everything here runs locally; nothing is sent anywhere."""
 import hashlib
+import json
 import math
 import re
 from collections import Counter
@@ -153,7 +154,7 @@ def rename(vault: Path, notes: dict, nid: str, new_title: str) -> Path:
         raw = p.read_text(encoding="utf-8")
         new = pattern.sub(lambda m: f"[[{new_title}{m.group(2)}]]", raw)
         if p == old_path:
-            new = re.sub(r"(?m)^title:\s*.*$", f"title: {new_title}", new, count=1)
+            new = re.sub(r"(?m)^title:\s*.*$", lambda _: f"title: {json.dumps(new_title, ensure_ascii=False)}", new, count=1)
             new = re.sub(r"(?m)^#\s+" + re.escape(note["title"]) + r"\s*$", f"# {new_title}", new, count=1)
         if new != raw:
             p.write_text(new, encoding="utf-8")

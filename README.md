@@ -49,6 +49,22 @@ AI suggestions use the Anthropic API: set `ANTHROPIC_API_KEY` (or sign in with `
 - **Edits made elsewhere** (Obsidian, a text editor, git) show up within a few seconds.
 - **Ask Claude for links** is optional, and it is the only feature that sends a note off your computer.
 
+## Importing documents
+
+Drop a PDF, Word file, slides, spreadsheet, web page, EPUB or a scanned image anywhere on the app, or use **Import**. [Docling](https://github.com/docling-project/docling) converts it on this computer, with layout, tables and text recognition for scans.
+
+- **Where it goes:** each document gets a folder in `vault/sources/` holding the note, the original file, and any figures (in `images/`).
+- **Long documents** (over about 3,000 words) become a contents note plus one note per section, linked together.
+- **Connections:** imported notes have the type `source`. Backlinks, "mentioned without a link", similar notes, search and the map pick them up like any other note.
+
+Docling is optional because it's a large download that includes PyTorch:
+
+```
+pip install docling
+```
+
+Restart the server afterwards. The first import also downloads Docling's models.
+
 ## Using the graph
 
 - The graph is live physics: cards hang on springy links. Drag a card and its neighbours follow, swing and settle. **Shake up** kicks every card so they rearrange. The wave button keeps the graph still if the motion distracts you.
@@ -63,6 +79,7 @@ AI suggestions use the Anthropic API: set `ANTHROPIC_API_KEY` (or sign in with `
 - `parser.py`: reads the vault, builds nodes and edges
 - `ai.py`: Claude call that suggests links and tags
 - `insights.py`: backlinks, mentions, search, similar notes, rename and daily notes (all local)
+- `importer.py`: document import with Docling (background queue, splitting long documents into section notes)
 - `web/app/`: the Next.js pages (`page.jsx` for the desk and notes, `map/page.jsx` for the map) and `globals.css`
 - `web/components/Shell.jsx`: the rail, quick capture and hotkeys; `Palette.jsx`: search and commands
 - `web/components/Workspace.jsx`: the desk and note page; `MapView.jsx`: the map

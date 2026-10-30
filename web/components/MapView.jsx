@@ -71,7 +71,7 @@ export default function MapView() {
             <div className="tab" style={{ "--c": `var(${typeVar(node.type)})` }}>{node.ghost ? "Not written yet" : cap(node.type)}</div>
             <h2>{node.label}</h2>
             <p className="sub">{node.degree ? `Connected to ${node.degree}` : "Not linked to anything yet"}</p>
-            {peek && <div className="peek-body"><Markdown body={peek.body} title={peek.title} ghosts={v.ghosts} onOpen={setSelected} /></div>}
+            {peek && <div className="peek-body"><Markdown body={peek.body} title={peek.title} ghosts={v.ghosts} onOpen={setSelected} base={peek.file.split("/").slice(0, -1).join("/")} /></div>}
             <div className="peek-foot">
               <Link className="btn ink" href={noteHref(node.id)}>{node.ghost ? "Write this note" : "Open note"}</Link>
               <button className="btn quiet" onClick={() => setSelected(null)}>Close</button>
