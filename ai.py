@@ -78,8 +78,8 @@ def suggest(note: dict, all_titles: list[str]) -> dict:
         raise AIError(f"API error {e.status_code}: {e.message}")
     except anthropic.APIConnectionError:
         raise AIError("Could not reach the Claude API. Check your internet connection.")
-    except TypeError as e:  # no credentials configured at all
-        raise AIError(f"Claude is not configured: {e}. Set ANTHROPIC_API_KEY and restart.")
+    except TypeError:  # no credentials configured at all
+        raise AIError("Claude isn't set up yet. Set ANTHROPIC_API_KEY (or run `ant auth login`), then restart the server.")
 
     if response.stop_reason == "refusal":
         raise AIError("Claude declined to analyse this note.")

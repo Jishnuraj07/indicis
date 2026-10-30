@@ -50,7 +50,7 @@ def note_path(note: dict) -> Path:
 
 @app.get("/")
 def index():
-    return FileResponse(ROOT / "static" / "index.html")
+    return FileResponse(ROOT / "static" / "index.html", headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/api/graph")
