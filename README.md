@@ -248,4 +248,4 @@ Your notes stay in a folder on your computer. Search, similar notes, document co
 
 ## License
 
-Indicis is released under the [MIT License](LICENSE).
+Indicis is released under the [MIT License](LICENSE). Release notes are in the [changelog](CHANGELOG.md).
