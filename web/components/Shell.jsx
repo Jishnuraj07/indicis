@@ -118,13 +118,13 @@ function Rail({ onToday, onMenu }) {
   return (
     <nav className="rail" aria-label="Notes">
       <div className="rail-top">
-        <Link href="/" className="brand" aria-label="Your desk">
+        <Link href="/" className="brand" aria-label="Indicis: your desk">
           <svg width="26" height="22" viewBox="0 0 26 22" aria-hidden="true">
             <rect x="5" y="1" width="20" height="14" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.5" opacity=".45" />
             <rect x="1" y="6" width="20" height="14" rx="1.5" fill="var(--card)" stroke="currentColor" strokeWidth="1.5" />
             <path d="M1 10.5h20" stroke="var(--margin)" strokeWidth="1.5" />
           </svg>
-          <b>Knowledge</b>
+          <b>Indicis</b>
         </Link>
         <button className="btn icon quiet menu-btn" onClick={onMenu} aria-label="Show notes">
           <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M2 5h14M2 9h14M2 13h14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>

@@ -7,8 +7,8 @@ const ui = IBM_Plex_Sans_Condensed({ subsets: ["latin"], weight: ["400", "500", 
 const serif = Spectral({ subsets: ["latin"], weight: ["400", "600"], style: ["normal", "italic"], variable: "--font-serif" });
 
 export const metadata = {
-  title: "Knowledge",
-  description: "Your notes as a slip box of linked index cards.",
+  title: { default: "Indicis", template: "%s · Indicis" },
+  description: "Your notes as a slip box of linked index cards, on your own computer.",
 };
 
 // Apply the saved light/dark choice before the first paint, so the page never flashes the wrong theme.

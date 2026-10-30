@@ -1,4 +1,4 @@
-"""Personal knowledge graph: FastAPI server over a folder of Markdown notes."""
+"""Indicis: a personal knowledge graph served over a folder of Markdown notes."""
 import json
 import os
 import re
@@ -18,7 +18,7 @@ ROOT = Path(__file__).parent
 VAULT = Path(os.environ.get("KG_VAULT", ROOT / "vault")).resolve()
 VAULT.mkdir(parents=True, exist_ok=True)
 
-app = FastAPI(title="Knowledge Graph")
+app = FastAPI(title="Indicis")
 imports = importer.Importer(VAULT)
 
 

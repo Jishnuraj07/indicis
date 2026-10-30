@@ -206,6 +206,7 @@ mark { background: color-mix(in srgb, var(--t-journal) 30%, transparent); color:
 .card { position: relative; background: var(--card); border-radius: 3px; box-shadow: var(--shadow);
   border: 1px solid var(--line); margin-top: 22px; transform-origin: 30% 0; animation: deal .6s var(--spring) backwards; }
 .card.flat { margin-top: 0; animation: none; }
+.card.flat .prose { min-height: 0; padding-top: 0; }
 @keyframes deal { from { opacity: 0; transform: translateY(26px) rotate(-3deg) scale(.96); } 50% { opacity: 1; } }
 .card.skeleton { height: 320px; animation: shimmer 1.2s linear infinite;
   background: linear-gradient(100deg, var(--card) 40%, color-mix(in srgb, var(--rule) 40%, var(--card)) 50%, var(--card) 60%) 0 0 / 300% 100%; }
