@@ -20,7 +20,7 @@ Import PDFs and papers as notes. Let Claude suggest connections you missed, only
 
 <br>
 
-<img src="docs/screenshots/note.png" alt="A note open in Indicis: the note on a ruled index card, with its nearby notes as a small graph and the notes that link to it alongside" width="900">
+<img src="docs/screenshots/note.png" alt="A note on RAG open in Indicis, in dark mode: the note on a ruled index card, with its nearby notes as a small graph and the notes that link to it alongside" width="900">
 
 </div>
 
@@ -101,7 +101,7 @@ Most note apps either bury ideas in folders or show a graph that's pretty and us
 </table>
 
 <p align="center">
-  <img src="docs/screenshots/map.png" alt="The map: every note as an index card on graph paper, joined by curved links" width="49%">
+  <img src="docs/screenshots/map.png" alt="The map of an AI engineering roadmap: every note as an index card on graph paper, joined by curved links" width="49%">
   <img src="docs/screenshots/desk.png" alt="The desk: a capture box, today's journal entries and recently edited cards" width="49%">
 </p>
 
