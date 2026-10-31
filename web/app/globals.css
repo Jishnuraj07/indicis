@@ -19,9 +19,9 @@
   :root:not([data-theme="light"]) {
     --paper: #141a1e; --grid: #1b2328; --grid-major: #243039;
     --desk: #171e22; --card: #1e272d; --ink: #e3e8ea; --muted: #92a0a8; --line: #2c3840;
-    --rule: #2a3946; --margin: #e0675d; --accent: #8ea2ff; --accent-ink: #10151a;
-    --edge: #4f606b; --ok: #6cc597; --danger: #ff8a7a;
-    --t-concept: #8ea2ff; --t-person: #ff9a5c; --t-book: #6cc597; --t-project: #d38ae6; --t-source: #5ccfe6; --t-journal: #e0b04a; --t-note: #a3adb6; --t-missing: #5f6d76;
+    --rule: #34485a; --margin: #e0675d; --accent: #8ea2ff; --accent-ink: #10151a;
+    --edge: #6a7b87; --ok: #6cc597; --danger: #ff8a7a;
+    --t-concept: #8ea2ff; --t-person: #ff9a5c; --t-book: #6cc597; --t-project: #d38ae6; --t-source: #5ccfe6; --t-journal: #e0b04a; --t-note: #a3adb6; --t-missing: #77878f;
     --shadow: 0 1px 0 rgba(0, 0, 0, .3), 0 14px 30px -16px rgba(0, 0, 0, .8);
     --lift: 0 2px 0 rgba(0, 0, 0, .3), 0 26px 40px -16px rgba(0, 0, 0, .9);
     color-scheme: dark;
@@ -30,9 +30,9 @@
 :root[data-theme="dark"] {
   --paper: #141a1e; --grid: #1b2328; --grid-major: #243039;
   --desk: #171e22; --card: #1e272d; --ink: #e3e8ea; --muted: #92a0a8; --line: #2c3840;
-  --rule: #2a3946; --margin: #e0675d; --accent: #8ea2ff; --accent-ink: #10151a;
-  --edge: #4f606b; --ok: #6cc597; --danger: #ff8a7a;
-  --t-concept: #8ea2ff; --t-person: #ff9a5c; --t-book: #6cc597; --t-project: #d38ae6; --t-source: #5ccfe6; --t-journal: #e0b04a; --t-note: #a3adb6; --t-missing: #5f6d76;
+  --rule: #34485a; --margin: #e0675d; --accent: #8ea2ff; --accent-ink: #10151a;
+  --edge: #6a7b87; --ok: #6cc597; --danger: #ff8a7a;
+  --t-concept: #8ea2ff; --t-person: #ff9a5c; --t-book: #6cc597; --t-project: #d38ae6; --t-source: #5ccfe6; --t-journal: #e0b04a; --t-note: #a3adb6; --t-missing: #77878f;
   --shadow: 0 1px 0 rgba(0, 0, 0, .3), 0 14px 30px -16px rgba(0, 0, 0, .8);
   --lift: 0 2px 0 rgba(0, 0, 0, .3), 0 26px 40px -16px rgba(0, 0, 0, .9);
   color-scheme: dark;

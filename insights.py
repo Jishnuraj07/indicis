@@ -26,7 +26,12 @@ def _mask(text: str, pattern: re.Pattern) -> str:
 def _clean(line: str, limit: int = 220) -> str:
     line = re.sub(r"^\s*(?:[-*+]|\d+\.)\s+", "", line.strip())
     line = re.sub(r"^#+\s*", "", line)
-    return line if len(line) <= limit else line[: limit - 1].rstrip() + "…"
+    if len(line) <= limit:
+        return line
+    cut = line[: limit - 1]
+    if cut.rfind("[[") > cut.rfind("]]"):  # don't leave half a wiki-link behind
+        cut = cut[: cut.rfind("[[")]
+    return cut.rstrip() + "…"
 
 
 def _around(text: str, start: int, end: int, width: int = 90) -> str:
@@ -35,6 +40,14 @@ def _around(text: str, start: int, end: int, width: int = 90) -> str:
     le = text.find("\n", end)
     le = len(text) if le == -1 else le
     a, b = max(ls, start - width), min(le, end + width)
+    # Widen the window rather than cut through a [[wiki-link]] at either end.
+    opened = text.rfind("[[", ls, a + 1)
+    if opened != -1 and text.rfind("]]", ls, a + 1) < opened:
+        a = opened
+    opened = text.rfind("[[", a, b)
+    if opened != -1 and text.find("]]", opened, b) == -1:
+        close = text.find("]]", b, le)
+        b = close + 2 if close != -1 else opened
     s = text[a:b].strip()
     return ("…" if a > ls else "") + _clean(s, 400) + ("…" if b < le else "")
 
