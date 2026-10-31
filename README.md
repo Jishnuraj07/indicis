@@ -12,10 +12,10 @@
 Write in plain Markdown, link ideas with `[[wiki-links]]`, and watch them form a living graph.
 Import PDFs and papers as notes. Let Claude suggest connections you missed, only when you ask.
 
-![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
-![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)
-![Local-first](https://img.shields.io/badge/data-local--first-2f7d4f)
-![Obsidian compatible](https://img.shields.io/badge/vault-Obsidian%20compatible-7c3aed?logo=obsidian&logoColor=white)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/downloads/)
+[![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)](https://nextjs.org)
+[![Local-first](https://img.shields.io/badge/data-local--first-2f7d4f)](#privacy)
+[![Obsidian compatible](https://img.shields.io/badge/vault-Obsidian%20compatible-7c3aed?logo=obsidian&logoColor=white)](#writing-notes)
 [![License: MIT](https://img.shields.io/badge/license-MIT-2643b0)](LICENSE)
 
 <br>
